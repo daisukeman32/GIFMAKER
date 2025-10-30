@@ -17,7 +17,12 @@ const durationDisplay = document.getElementById('duration-display');
 const startTimeInput = document.getElementById('start-time-input');
 const endTimeInput = document.getElementById('end-time-input');
 const durationInput = document.getElementById('duration-input');
-const maxSizeInput = document.getElementById('max-size');
+const outputWidthInput = document.getElementById('output-width');
+const qualitySlider = document.getElementById('quality-slider');
+const qualityValue = document.getElementById('quality-value');
+const sizeLimitSlider = document.getElementById('size-limit-slider');
+const sizeLimitValue = document.getElementById('size-limit-value');
+const predictedSizeDisplay = document.getElementById('predicted-size');
 const createGifBtn = document.getElementById('create-gif-btn');
 const resetBtn = document.getElementById('reset-btn');
 const progressSection = document.getElementById('progress-section');
@@ -32,6 +37,56 @@ function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// 予測サイズを計算（概算）
+function calculatePredictedSize() {
+  if (!videoData) return 0;
+
+  const startTime = parseFloat(startTimeSlider.value);
+  const endTime = parseFloat(endTimeSlider.value);
+  const duration = endTime - startTime;
+  const quality = parseInt(qualitySlider.value);
+  const width = parseInt(outputWidthInput.value);
+
+  // 縦横比を維持して高さを計算
+  const aspectRatio = videoData.height / videoData.width;
+  const height = Math.round(width * aspectRatio);
+
+  // 品質からFPSとカラーを推定
+  // quality: 1-100
+  const fps = Math.round(8 + (quality / 100) * 22); // 8-30 FPS
+  const colors = Math.round(128 + (quality / 100) * 128); // 128-256 colors
+
+  // GIFサイズの概算式
+  // サイズ ≈ (幅 × 高さ × FPS × 秒数 × bits_per_pixel × 圧縮率) / (8 * 1024 * 1024)
+  const bitsPerPixel = Math.log2(colors); // 7-8 bits
+  const compressionFactor = 0.15 + (quality / 100) * 0.25; // 0.15-0.40
+
+  const sizeMB = (width * height * fps * duration * bitsPerPixel * compressionFactor) / (8 * 1024 * 1024);
+
+  return Math.max(0.1, sizeMB);
+}
+
+// 予測サイズを更新
+function updatePredictedSize() {
+  const predictedSize = calculatePredictedSize();
+  predictedSizeDisplay.textContent = predictedSize.toFixed(1);
+
+  // サイズ上限と比較
+  const sizeLimit = parseFloat(sizeLimitSlider.value);
+  if (predictedSize > sizeLimit) {
+    predictedSizeDisplay.style.color = '#ff6b6b';
+  } else {
+    predictedSizeDisplay.style.color = '#ffffff';
+  }
+}
+
+// 品質から設定を取得
+function getQualitySettings(quality) {
+  const fps = Math.round(8 + (quality / 100) * 22); // 8-30 FPS
+  const scale = parseInt(outputWidthInput.value);
+  return { fps, scale };
 }
 
 // ファイル選択ボタン
@@ -107,8 +162,14 @@ function loadVideo(data) {
   durationInput.max = data.duration;
   durationInput.value = data.duration.toFixed(1);
 
+  // 出力幅を動画サイズに基づいて初期化
+  outputWidthInput.value = Math.min(data.width, 480);
+
   // 時間表示を更新
   updateTimeDisplay();
+
+  // 予測サイズを初期化
+  updatePredictedSize();
 }
 
 // スライダーイベント
@@ -188,13 +249,95 @@ durationInput.addEventListener('input', () => {
 
   endTimeSlider.value = endTime;
   updateTimeDisplay();
+  updatePredictedSize();
 });
+
+// 出力幅の変更
+outputWidthInput.addEventListener('input', () => {
+  updatePredictedSize();
+});
+
+// 品質スライダーの変更
+qualitySlider.addEventListener('input', () => {
+  const quality = parseInt(qualitySlider.value);
+  qualityValue.textContent = quality;
+  updatePredictedSize();
+
+  // サイズ上限チェック
+  const predictedSize = calculatePredictedSize();
+  const sizeLimit = parseFloat(sizeLimitSlider.value);
+
+  if (predictedSize > sizeLimit) {
+    // 品質を自動調整してサイズ上限内に収める
+    let adjustedQuality = quality;
+    while (adjustedQuality > 1) {
+      adjustedQuality -= 1;
+      const testSize = calculatePredictedSizeWithQuality(adjustedQuality);
+      if (testSize <= sizeLimit) {
+        qualitySlider.value = adjustedQuality;
+        qualityValue.textContent = adjustedQuality;
+        updatePredictedSize();
+        break;
+      }
+    }
+  }
+});
+
+// サイズ上限スライダーの変更
+sizeLimitSlider.addEventListener('input', () => {
+  const limit = parseFloat(sizeLimitSlider.value);
+  sizeLimitValue.textContent = limit.toFixed(1);
+  updatePredictedSize();
+
+  // 予測サイズが上限を超えている場合、品質を調整
+  const predictedSize = calculatePredictedSize();
+  if (predictedSize > limit) {
+    const currentQuality = parseInt(qualitySlider.value);
+    let adjustedQuality = currentQuality;
+
+    while (adjustedQuality > 1) {
+      adjustedQuality -= 1;
+      const testSize = calculatePredictedSizeWithQuality(adjustedQuality);
+      if (testSize <= limit) {
+        qualitySlider.value = adjustedQuality;
+        qualityValue.textContent = adjustedQuality;
+        updatePredictedSize();
+        break;
+      }
+    }
+  }
+});
+
+// 指定品質での予測サイズを計算
+function calculatePredictedSizeWithQuality(quality) {
+  if (!videoData) return 0;
+
+  const startTime = parseFloat(startTimeSlider.value);
+  const endTime = parseFloat(endTimeSlider.value);
+  const duration = endTime - startTime;
+  const width = parseInt(outputWidthInput.value);
+
+  const aspectRatio = videoData.height / videoData.width;
+  const height = Math.round(width * aspectRatio);
+
+  const fps = Math.round(8 + (quality / 100) * 22);
+  const colors = Math.round(128 + (quality / 100) * 128);
+
+  const bitsPerPixel = Math.log2(colors);
+  const compressionFactor = 0.15 + (quality / 100) * 0.25;
+
+  const sizeMB = (width * height * fps * duration * bitsPerPixel * compressionFactor) / (8 * 1024 * 1024);
+
+  return Math.max(0.1, sizeMB);
+}
 
 // GIF作成ボタン
 createGifBtn.addEventListener('click', async () => {
   const startTime = parseFloat(startTimeSlider.value);
   const endTime = parseFloat(endTimeSlider.value);
-  const maxSizeMB = parseInt(maxSizeInput.value);
+  const quality = parseInt(qualitySlider.value);
+  const sizeLimit = parseFloat(sizeLimitSlider.value);
+  const outputWidth = parseInt(outputWidthInput.value);
 
   // バリデーション
   if (endTime - startTime < 0.5) {
@@ -224,7 +367,9 @@ createGifBtn.addEventListener('click', async () => {
             videoPath: video.path,
             startTime: startTime,
             endTime: Math.min(endTime, video.duration),
-            maxSizeMB: maxSizeMB,
+            quality: quality,
+            sizeLimit: sizeLimit,
+            outputWidth: outputWidth,
             width: video.width,
             height: video.height
           });
@@ -248,7 +393,9 @@ createGifBtn.addEventListener('click', async () => {
         videoPath: videoData.path,
         startTime: startTime,
         endTime: endTime,
-        maxSizeMB: maxSizeMB,
+        quality: quality,
+        sizeLimit: sizeLimit,
+        outputWidth: outputWidth,
         width: videoData.width,
         height: videoData.height
       });

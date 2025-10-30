@@ -104,52 +104,32 @@ ipcMain.handle('load-videos', async (event, videoPaths) => {
   return await Promise.all(metadataPromises);
 });
 
-// GIF作成 - 二分探索で最適な品質を見つける
+// GIF作成 - 品質設定に基づいて変換
 ipcMain.handle('create-gif', async (event, options) => {
-  const { videoPath, startTime, endTime, maxSizeMB, width, height } = options;
+  const { videoPath, startTime, endTime, quality, sizeLimit, outputWidth, width, height } = options;
 
   // 出力ファイルパス
   const outputPath = path.join(app.getPath('desktop'), `output_${Date.now()}.gif`);
   const tempPath = path.join(app.getPath('temp'), `temp_${Date.now()}.gif`);
 
   return new Promise((resolve, reject) => {
-    // 品質パラメータの範囲
-    let minFps = 8;
-    let maxFps = 30;
-    let minScale = 240;
-    let maxScale = Math.min(width, 1200);
+    // 品質から設定を計算
+    const fps = Math.round(8 + (quality / 100) * 22); // 8-30 FPS
+    const aspectRatio = height / width;
+    const outputHeight = Math.round(outputWidth * aspectRatio);
 
+    // サイズ上限チェック用
+    const maxSizeMB = sizeLimit;
     let bestResult = null;
     let attemptCount = 0;
-    const maxAttempts = 15; // より細かく調整するため試行回数を増やす
+    const maxAttempts = 10;
 
-    // 二分探索で最適な設定を見つける
-    const findOptimalSettings = async () => {
-      if (attemptCount >= maxAttempts) {
-        // 最適な結果を返す
-        if (bestResult) {
-          fs.renameSync(bestResult.tempPath, outputPath);
-          resolve({
-            success: true,
-            path: outputPath,
-            size: bestResult.size.toFixed(2),
-            fps: bestResult.fps,
-            width: bestResult.scale
-          });
-        } else {
-          reject(new Error('最適な設定が見つかりませんでした'));
-        }
-        return;
-      }
-
+    // 指定された品質で変換を試みる
+    const tryConvert = (currentFps, currentScale) => {
       attemptCount++;
 
-      // 現在の中間値で試行
-      const currentFps = Math.round((minFps + maxFps) / 2);
-      const currentScale = Math.round((minScale + maxScale) / 2);
-
       event.sender.send('conversion-progress', {
-        message: `最適化中... ${attemptCount}/${maxAttempts} (FPS: ${currentFps}, Width: ${currentScale}px)`
+        message: `変換中... (FPS: ${currentFps}, Width: ${currentScale}px)`
       });
 
       const testPath = path.join(app.getPath('temp'), `test_${Date.now()}_${attemptCount}.gif`);
@@ -168,89 +148,27 @@ ipcMain.handle('create-gif', async (event, options) => {
             const stats = fs.statSync(testPath);
             const sizeMB = stats.size / (1024 * 1024);
 
-            // サイズが上限の98%〜99.5%の範囲内なら最適（絶対に上限を超えない）
-            const targetMin = maxSizeMB * 0.98;
-            const targetMax = maxSizeMB * 0.995;
-
-            if (sizeMB <= targetMax && sizeMB >= targetMin) {
-              // 最適な結果を保存
-              if (!bestResult || sizeMB > bestResult.size) {
-                if (bestResult && fs.existsSync(bestResult.tempPath)) {
-                  fs.unlinkSync(bestResult.tempPath);
-                }
-                bestResult = { tempPath: testPath, size: sizeMB, fps: currentFps, scale: currentScale };
-              } else {
-                fs.unlinkSync(testPath);
-              }
-
-              // 完了
-              fs.renameSync(bestResult.tempPath, outputPath);
+            // サイズ上限内かチェック
+            if (sizeMB <= maxSizeMB) {
+              // 成功
+              fs.renameSync(testPath, outputPath);
               resolve({
                 success: true,
                 path: outputPath,
-                size: bestResult.size.toFixed(2),
-                fps: bestResult.fps,
-                width: bestResult.scale
+                size: sizeMB.toFixed(2),
+                fps: currentFps,
+                width: currentScale
               });
-            } else if (sizeMB > targetMax) {
-              // サイズが大きすぎる - 品質を下げる
-              // 上限を超えた結果は保存しない
+            } else if (attemptCount < maxAttempts) {
+              // サイズが大きすぎる場合、FPSを下げて再試行
               fs.unlinkSync(testPath);
-
-              // 範囲を狭める
-              maxFps = currentFps - 1;
-              maxScale = Math.floor(currentScale * 0.9);
-
-              if (maxFps < minFps || maxScale < minScale) {
-                // これ以上下げられない
-                if (bestResult) {
-                  fs.renameSync(bestResult.tempPath, outputPath);
-                  resolve({
-                    success: true,
-                    path: outputPath,
-                    size: bestResult.size.toFixed(2),
-                    fps: bestResult.fps,
-                    width: bestResult.scale
-                  });
-                } else {
-                  reject(new Error('サイズ制限内に収まりませんでした'));
-                }
-              } else {
-                findOptimalSettings();
-              }
+              const newFps = Math.max(8, currentFps - 2);
+              const newScale = Math.max(120, Math.floor(currentScale * 0.9));
+              tryConvert(newFps, newScale);
             } else {
-              // サイズが小さすぎる - 品質を上げられるか試す
-              // ただし、上限以下の最良の結果は保持
-              if (sizeMB <= maxSizeMB && (!bestResult || sizeMB > bestResult.size)) {
-                if (bestResult && fs.existsSync(bestResult.tempPath)) {
-                  fs.unlinkSync(bestResult.tempPath);
-                }
-                bestResult = { tempPath: testPath, size: sizeMB, fps: currentFps, scale: currentScale };
-              } else {
-                fs.unlinkSync(testPath);
-              }
-
-              // 範囲を狭める
-              minFps = currentFps + 1;
-              minScale = Math.floor(currentScale * 1.1);
-
-              if (minFps > maxFps || minScale > maxScale) {
-                // これ以上上げられない
-                if (bestResult) {
-                  fs.renameSync(bestResult.tempPath, outputPath);
-                  resolve({
-                    success: true,
-                    path: outputPath,
-                    size: bestResult.size.toFixed(2),
-                    fps: bestResult.fps,
-                    width: bestResult.scale
-                  });
-                } else {
-                  reject(new Error('GIF作成に失敗しました'));
-                }
-              } else {
-                findOptimalSettings();
-              }
+              // 最大試行回数に達した
+              fs.unlinkSync(testPath);
+              reject(new Error('サイズ上限内に収まりませんでした'));
             }
           } catch (err) {
             reject(err);
@@ -265,7 +183,8 @@ ipcMain.handle('create-gif', async (event, options) => {
         .run();
     };
 
-    findOptimalSettings();
+    // 初回変換を開始
+    tryConvert(fps, outputWidth);
   });
 });
 
