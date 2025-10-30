@@ -1,0 +1,27 @@
+{
+  "name": "gif-maker",
+  "version": "1.0.0",
+  "description": "Elegant video to GIF converter",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "keywords": ["gif", "video", "converter", "electron"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "fluent-ffmpeg": "^2.1.2"
+  },
+  "build": {
+    "appId": "com.gifmaker.app",
+    "productName": "GIF Maker",
+    "win": {
+      "target": ["nsis"]
+    }
+  }
+}
