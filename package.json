@@ -21,7 +21,10 @@
     "appId": "com.gifmaker.app",
     "productName": "GIF Maker",
     "win": {
-      "target": ["nsis"]
+      "target": ["dir"]
+    },
+    "directories": {
+      "output": "dist"
     }
   }
 }
