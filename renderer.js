@@ -3,12 +3,29 @@ const { ipcRenderer } = require('electron');
 let videoData = null;
 let currentOutputPath = null;
 let videoQueue = []; // 複数ファイル用のキュー
+let outputFolder = null; // 保存先フォルダ
+
+// テーマ管理
+let isDayMode = false;
+const themeToggle = document.getElementById('theme-toggle');
+
+// テーマ切り替え
+themeToggle.addEventListener('click', () => {
+  isDayMode = !isDayMode;
+  document.body.classList.toggle('day-mode', isDayMode);
+
+  // 予測サイズ表示の色を更新
+  updatePredictedSize();
+});
 
 // DOM要素
 const dropZone = document.getElementById('drop-zone');
 const editor = document.getElementById('editor');
 const videoPlayer = document.getElementById('video-player');
 const selectFileBtn = document.getElementById('select-file-btn');
+const changeVideoBtn = document.getElementById('change-video-btn');
+const selectFolderBtn = document.getElementById('select-folder-btn');
+const outputFolderPath = document.getElementById('output-folder-path');
 const startTimeSlider = document.getElementById('start-time');
 const endTimeSlider = document.getElementById('end-time');
 const startTimeDisplay = document.getElementById('start-time-display');
@@ -18,10 +35,9 @@ const startTimeInput = document.getElementById('start-time-input');
 const endTimeInput = document.getElementById('end-time-input');
 const durationInput = document.getElementById('duration-input');
 const outputWidthInput = document.getElementById('output-width');
+const outputHeightInput = document.getElementById('output-height');
 const qualitySlider = document.getElementById('quality-slider');
 const qualityValue = document.getElementById('quality-value');
-const sizeLimitSlider = document.getElementById('size-limit-slider');
-const sizeLimitValue = document.getElementById('size-limit-value');
 const predictedSizeDisplay = document.getElementById('predicted-size');
 const createGifBtn = document.getElementById('create-gif-btn');
 const resetBtn = document.getElementById('reset-btn');
@@ -30,6 +46,7 @@ const progressBarFill = document.getElementById('progress-bar-fill');
 const progressMessage = document.getElementById('progress-message');
 const resultSection = document.getElementById('result-section');
 const resultSize = document.getElementById('result-size');
+const resultPath = document.getElementById('result-path');
 const saveAsBtn = document.getElementById('save-as-btn');
 
 // 時間をフォーマット
@@ -73,13 +90,18 @@ function updatePredictedSize() {
   const predictedSize = calculatePredictedSize();
   predictedSizeDisplay.textContent = predictedSize.toFixed(1);
 
-  // サイズ上限と比較
-  const sizeLimit = parseFloat(sizeLimitSlider.value);
-  if (predictedSize > sizeLimit) {
-    predictedSizeDisplay.style.color = '#ff6b6b';
-  } else {
-    predictedSizeDisplay.style.color = '#ffffff';
-  }
+  // テーマに応じて色を変更
+  predictedSizeDisplay.style.color = isDayMode ? '#000000' : '#ffffff';
+}
+
+// 縦幅を更新
+function updateOutputHeight() {
+  if (!videoData) return;
+
+  const width = parseInt(outputWidthInput.value);
+  const aspectRatio = videoData.height / videoData.width;
+  const height = Math.round(width * aspectRatio);
+  outputHeightInput.value = height;
 }
 
 // 品質から設定を取得
@@ -101,27 +123,43 @@ selectFileBtn.addEventListener('click', async () => {
   }
 });
 
-// ドラッグ&ドロップ
-dropZone.addEventListener('dragover', (e) => {
-  e.preventDefault();
-  dropZone.classList.add('drag-over');
+// 動画変更ボタン
+changeVideoBtn.addEventListener('click', async () => {
+  const result = await ipcRenderer.invoke('select-video');
+  if (result) {
+    // 進行中の処理があればリセット
+    progressSection.style.display = 'none';
+    resultSection.style.display = 'none';
+
+    if (Array.isArray(result)) {
+      loadMultipleVideos(result);
+    } else {
+      loadVideo(result);
+    }
+  }
 });
 
-dropZone.addEventListener('dragleave', () => {
-  dropZone.classList.remove('drag-over');
+// フォルダ選択ボタン
+selectFolderBtn.addEventListener('click', async () => {
+  const folder = await ipcRenderer.invoke('select-folder');
+  if (folder) {
+    outputFolder = folder;
+    outputFolderPath.value = folder;
+  }
 });
 
-dropZone.addEventListener('drop', async (e) => {
-  e.preventDefault();
-  dropZone.classList.remove('drag-over');
-
-  const files = Array.from(e.dataTransfer.files);
+// ドラッグ&ドロップの処理関数
+async function handleFileDrop(files) {
   const videoFiles = files.filter(file => {
     const ext = file.name.split('.').pop().toLowerCase();
     return ['mp4', 'mov', 'avi', 'mkv'].includes(ext);
   });
 
   if (videoFiles.length > 0) {
+    // 進行中の処理があればリセット
+    progressSection.style.display = 'none';
+    resultSection.style.display = 'none';
+
     // 複数ファイルの場合
     if (videoFiles.length > 1) {
       const paths = videoFiles.map(f => f.path);
@@ -137,6 +175,44 @@ dropZone.addEventListener('drop', async (e) => {
       }
     }
   }
+}
+
+// ドラッグ&ドロップ - ドロップゾーン
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('drag-over');
+});
+
+dropZone.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files);
+  await handleFileDrop(files);
+});
+
+// ドラッグ&ドロップ - ビデオプレビュー（上書き用）
+videoPlayer.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  videoPlayer.style.opacity = '0.5';
+});
+
+videoPlayer.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  videoPlayer.style.opacity = '1';
+});
+
+videoPlayer.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  videoPlayer.style.opacity = '1';
+  const files = Array.from(e.dataTransfer.files);
+  await handleFileDrop(files);
 });
 
 // 動画を読み込む
@@ -168,7 +244,8 @@ function loadVideo(data) {
   // 時間表示を更新
   updateTimeDisplay();
 
-  // 予測サイズを初期化
+  // 縦幅と予測サイズを初期化
+  updateOutputHeight();
   updatePredictedSize();
 }
 
@@ -254,6 +331,7 @@ durationInput.addEventListener('input', () => {
 
 // 出力幅の変更
 outputWidthInput.addEventListener('input', () => {
+  updateOutputHeight();
   updatePredictedSize();
 });
 
@@ -262,50 +340,6 @@ qualitySlider.addEventListener('input', () => {
   const quality = parseInt(qualitySlider.value);
   qualityValue.textContent = quality;
   updatePredictedSize();
-
-  // サイズ上限チェック
-  const predictedSize = calculatePredictedSize();
-  const sizeLimit = parseFloat(sizeLimitSlider.value);
-
-  if (predictedSize > sizeLimit) {
-    // 品質を自動調整してサイズ上限内に収める
-    let adjustedQuality = quality;
-    while (adjustedQuality > 1) {
-      adjustedQuality -= 1;
-      const testSize = calculatePredictedSizeWithQuality(adjustedQuality);
-      if (testSize <= sizeLimit) {
-        qualitySlider.value = adjustedQuality;
-        qualityValue.textContent = adjustedQuality;
-        updatePredictedSize();
-        break;
-      }
-    }
-  }
-});
-
-// サイズ上限スライダーの変更
-sizeLimitSlider.addEventListener('input', () => {
-  const limit = parseFloat(sizeLimitSlider.value);
-  sizeLimitValue.textContent = limit.toFixed(1);
-  updatePredictedSize();
-
-  // 予測サイズが上限を超えている場合、品質を調整
-  const predictedSize = calculatePredictedSize();
-  if (predictedSize > limit) {
-    const currentQuality = parseInt(qualitySlider.value);
-    let adjustedQuality = currentQuality;
-
-    while (adjustedQuality > 1) {
-      adjustedQuality -= 1;
-      const testSize = calculatePredictedSizeWithQuality(adjustedQuality);
-      if (testSize <= limit) {
-        qualitySlider.value = adjustedQuality;
-        qualityValue.textContent = adjustedQuality;
-        updatePredictedSize();
-        break;
-      }
-    }
-  }
 });
 
 // 指定品質での予測サイズを計算
@@ -336,7 +370,6 @@ createGifBtn.addEventListener('click', async () => {
   const startTime = parseFloat(startTimeSlider.value);
   const endTime = parseFloat(endTimeSlider.value);
   const quality = parseInt(qualitySlider.value);
-  const sizeLimit = parseFloat(sizeLimitSlider.value);
   const outputWidth = parseInt(outputWidthInput.value);
 
   // バリデーション
@@ -368,10 +401,10 @@ createGifBtn.addEventListener('click', async () => {
             startTime: startTime,
             endTime: Math.min(endTime, video.duration),
             quality: quality,
-            sizeLimit: sizeLimit,
             outputWidth: outputWidth,
             width: video.width,
-            height: video.height
+            height: video.height,
+            outputFolder: outputFolder
           });
 
           if (result.success) {
@@ -394,10 +427,10 @@ createGifBtn.addEventListener('click', async () => {
         startTime: startTime,
         endTime: endTime,
         quality: quality,
-        sizeLimit: sizeLimit,
         outputWidth: outputWidth,
         width: videoData.width,
-        height: videoData.height
+        height: videoData.height,
+        outputFolder: outputFolder
       });
 
       if (result.success) {
@@ -405,6 +438,7 @@ createGifBtn.addEventListener('click', async () => {
 
         // 結果を表示
         resultSize.textContent = result.size;
+        resultPath.textContent = outputFolder || 'デスクトップ';
         progressSection.style.display = 'none';
         resultSection.style.display = 'block';
       }
@@ -468,6 +502,10 @@ function loadMultipleVideos(videos) {
   // 時間表示を更新
   updateTimeDisplay();
 
+  // 縦幅と予測サイズを初期化
+  updateOutputHeight();
+  updatePredictedSize();
+
   // ボタンを「全てをGIF変換」に変更
   createGifBtn.textContent = `全て (${videos.length}個) をGIF変換`;
 }
@@ -477,6 +515,8 @@ resetBtn.addEventListener('click', () => {
   videoData = null;
   currentOutputPath = null;
   videoQueue = [];
+  outputFolder = null;
+  outputFolderPath.value = '';
   videoPlayer.src = '';
   editor.style.display = 'none';
   dropZone.style.display = 'block';

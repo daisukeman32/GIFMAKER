@@ -15,6 +15,12 @@ body {
   justify-content: center;
   align-items: center;
   overflow-x: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+body.day-mode {
+  background: #e0e0e0;
+  color: #000000;
 }
 
 .container {
@@ -26,6 +32,39 @@ body {
 header {
   text-align: center;
   margin-bottom: 60px;
+  position: relative;
+}
+
+.theme-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: transparent;
+  border: 1px solid #333333;
+  color: #ffffff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.theme-toggle:hover {
+  border-color: #666666;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+body.day-mode .theme-toggle {
+  border-color: #999999;
+  color: #000000;
+}
+
+body.day-mode .theme-toggle:hover {
+  border-color: #666666;
+  background: rgba(0, 0, 0, 0.05);
 }
 
 h1 {
@@ -34,6 +73,13 @@ h1 {
   letter-spacing: 0.3em;
   text-transform: uppercase;
   background: linear-gradient(135deg, #ffffff 0%, #888888 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+body.day-mode h1 {
+  background: linear-gradient(135deg, #333333 0%, #666666 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -167,6 +213,25 @@ h1 {
   width: 100%;
   height: auto;
   display: block;
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+}
+
+#video-player:hover {
+  opacity: 0.9;
+}
+
+.video-controls {
+  padding: 16px;
+  background: #111111;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.video-controls button {
+  font-size: 0.9rem;
+  padding: 10px 24px;
 }
 
 .controls {
@@ -196,7 +261,7 @@ h1 {
   margin-bottom: 12px;
 }
 
-input[type="range"] {
+.timeline input[type="range"] {
   position: absolute;
   width: 100%;
   height: 4px;
@@ -206,13 +271,13 @@ input[type="range"] {
   outline: none;
 }
 
-input[type="range"]::-webkit-slider-track {
+.timeline input[type="range"]::-webkit-slider-track {
   height: 4px;
   background: #333333;
   border-radius: 2px;
 }
 
-input[type="range"]::-webkit-slider-thumb {
+.timeline input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 18px;
@@ -224,7 +289,7 @@ input[type="range"]::-webkit-slider-thumb {
   box-shadow: 0 2px 8px rgba(255, 255, 255, 0.3);
 }
 
-input[type="range"]::-webkit-slider-thumb:hover {
+.timeline input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.2);
 }
 
@@ -260,6 +325,43 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-radius: 12px;
 }
 
+.output-folder-control {
+  margin-bottom: 24px;
+}
+
+.output-folder-control label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  opacity: 0.8;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.folder-select {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.folder-select input[type="text"] {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #333333;
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: 'Inter', sans-serif;
+  cursor: default;
+}
+
+.folder-select button {
+  white-space: nowrap;
+  padding: 12px 24px;
+}
+
 .quality-control,
 .limit-control {
   margin-bottom: 24px;
@@ -278,33 +380,35 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .quality-control input[type="range"],
 .limit-control input[type="range"] {
-  width: 100%;
-  height: 6px;
-  background: linear-gradient(to right, #333333 0%, #666666 50%, #ffffff 100%);
-  border-radius: 3px;
+  position: static !important;
+  width: 100% !important;
+  height: 4px !important;
+  background: linear-gradient(to right, #333333 0%, #666666 50%, #ffffff 100%) !important;
+  border-radius: 2px !important;
   outline: none;
   -webkit-appearance: none;
   appearance: none;
-  margin-bottom: 8px;
+  margin: 8px 0 !important;
 }
 
 .quality-control input[type="range"]::-webkit-slider-thumb,
 .limit-control input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  background: #ffffff;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(255, 255, 255, 0.3);
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 14px !important;
+  height: 14px !important;
+  background: #ffffff !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 1px 4px rgba(255, 255, 255, 0.3) !important;
+  margin-top: -5px !important;
 }
 
 .quality-control input[type="range"]::-webkit-slider-thumb:hover,
 .limit-control input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.5);
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.5);
 }
 
 .quality-display,
@@ -360,6 +464,38 @@ input[type="range"]::-webkit-slider-thumb:hover {
   margin-bottom: 8px;
   opacity: 0.8;
   letter-spacing: 0.05em;
+}
+
+.size-display-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.size-input-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.size-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.6;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.size-separator {
+  font-size: 1.2rem;
+  font-weight: 300;
+  opacity: 0.5;
+  padding-top: 20px;
+}
+
+.size-input-wrapper input[type="number"] {
+  width: 100%;
 }
 
 input[type="number"] {
@@ -460,4 +596,127 @@ input[type="number"]:focus {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #555555;
+}
+
+/* Day Mode Styles */
+body.day-mode .drop-zone {
+  border-color: #999999;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+body.day-mode .drop-zone:hover,
+body.day-mode .drop-zone.drag-over {
+  border-color: #666666;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.day-mode .primary-btn {
+  background: #333333;
+  color: #ffffff;
+}
+
+body.day-mode .primary-btn:hover {
+  background: #444444;
+}
+
+body.day-mode .secondary-btn {
+  border-color: #999999;
+  color: #000000;
+}
+
+body.day-mode .secondary-btn:hover {
+  border-color: #666666;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.day-mode .batch-mode-info {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: #999999;
+}
+
+body.day-mode .video-preview {
+  background: #f5f5f5;
+}
+
+body.day-mode .video-controls {
+  background: #f5f5f5;
+}
+
+body.day-mode .controls {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: #cccccc;
+}
+
+body.day-mode .timeline input[type="range"]::-webkit-slider-track {
+  background: #999999;
+}
+
+body.day-mode .timeline input[type="range"]::-webkit-slider-thumb {
+  background: #333333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.day-mode input[type="number"] {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: #999999;
+  color: #000000;
+}
+
+body.day-mode input[type="number"]:focus {
+  border-color: #666666;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+body.day-mode .quality-section {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: #cccccc;
+}
+
+body.day-mode .quality-control input[type="range"],
+body.day-mode .limit-control input[type="range"] {
+  background: linear-gradient(to right, #999999 0%, #666666 50%, #333333 100%) !important;
+}
+
+body.day-mode .quality-control input[type="range"]::-webkit-slider-thumb,
+body.day-mode .limit-control input[type="range"]::-webkit-slider-thumb {
+  background: #333333 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.day-mode .size-info {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.day-mode .progress-section {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.day-mode .progress-bar {
+  background: #cccccc;
+}
+
+body.day-mode .progress-bar-fill {
+  background: linear-gradient(90deg, #333333 0%, #666666 100%);
+}
+
+body.day-mode .result-section {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.day-mode ::-webkit-scrollbar-track {
+  background: #e0e0e0;
+}
+
+body.day-mode ::-webkit-scrollbar-thumb {
+  background: #999999;
+}
+
+body.day-mode ::-webkit-scrollbar-thumb:hover {
+  background: #777777;
+}
+
+body.day-mode .folder-select input[type="text"] {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: #999999;
+  color: #000000;
 }

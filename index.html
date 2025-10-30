@@ -10,6 +10,19 @@
   <div class="container">
     <header>
       <h1>GIF MAKER</h1>
+      <button id="theme-toggle" class="theme-toggle">
+        <svg id="theme-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+      </button>
     </header>
 
     <main>
@@ -34,6 +47,9 @@
 
         <div class="video-preview">
           <video id="video-player" controls></video>
+          <div class="video-controls">
+            <button id="change-video-btn" class="secondary-btn">動画を変更</button>
+          </div>
         </div>
 
         <div class="controls">
@@ -64,12 +80,30 @@
               <input type="number" id="duration-input" value="0" min="0.1" step="0.1">
             </div>
             <div class="setting-group">
-              <label>出力幅 (px)</label>
-              <input type="number" id="output-width" value="480" min="120" max="1920" step="1">
+              <label>出力サイズ (px)</label>
+              <div class="size-display-group">
+                <div class="size-input-wrapper">
+                  <label class="size-label">横幅</label>
+                  <input type="number" id="output-width" value="480" min="120" max="1920" step="1">
+                </div>
+                <span class="size-separator">×</span>
+                <div class="size-input-wrapper">
+                  <label class="size-label">縦幅</label>
+                  <input type="number" id="output-height" value="480" readonly>
+                </div>
+              </div>
             </div>
           </div>
 
           <div class="quality-section">
+            <div class="output-folder-control">
+              <label>保存先フォルダ</label>
+              <div class="folder-select">
+                <input type="text" id="output-folder-path" readonly placeholder="デスクトップ">
+                <button id="select-folder-btn" class="secondary-btn">フォルダを選択</button>
+              </div>
+            </div>
+
             <div class="quality-control">
               <label>品質</label>
               <input type="range" id="quality-slider" min="1" max="100" value="80" step="1">
@@ -83,14 +117,6 @@
             <div class="size-info">
               <p class="predicted-size">予測サイズ: 約 <span id="predicted-size">0</span> MB</p>
               <p class="size-note">※実際の生成サイズとは誤差が発生します</p>
-            </div>
-
-            <div class="limit-control">
-              <label>サイズ上限 (MB)</label>
-              <input type="range" id="size-limit-slider" min="1" max="50" value="15" step="0.5">
-              <div class="limit-display">
-                <span id="size-limit-value">15</span> MB
-              </div>
             </div>
           </div>
 
@@ -110,7 +136,7 @@
             <h3>完成！</h3>
             <div class="result-info">
               <p>ファイルサイズ: <span id="result-size"></span> MB</p>
-              <p>保存先: デスクトップ</p>
+              <p>保存先: <span id="result-path"></span></p>
             </div>
             <button id="save-as-btn" class="primary-btn">名前を付けて保存</button>
           </div>

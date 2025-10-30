@@ -93,6 +93,19 @@ ipcMain.handle('select-video', async () => {
   return null;
 });
 
+// フォルダ選択ダイアログ
+ipcMain.handle('select-folder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0];
+  }
+
+  return null;
+});
+
 // パスから動画を読み込む（ドラッグ&ドロップ用）
 ipcMain.handle('load-video-by-path', async (event, videoPath) => {
   return await getVideoMetadata(videoPath);
@@ -106,11 +119,11 @@ ipcMain.handle('load-videos', async (event, videoPaths) => {
 
 // GIF作成 - 品質設定に基づいて変換
 ipcMain.handle('create-gif', async (event, options) => {
-  const { videoPath, startTime, endTime, quality, sizeLimit, outputWidth, width, height } = options;
+  const { videoPath, startTime, endTime, quality, outputWidth, width, height, outputFolder } = options;
 
-  // 出力ファイルパス
-  const outputPath = path.join(app.getPath('desktop'), `output_${Date.now()}.gif`);
-  const tempPath = path.join(app.getPath('temp'), `temp_${Date.now()}.gif`);
+  // 出力ファイルパス（outputFolderが指定されていればそれを使用、なければデスクトップ）
+  const targetFolder = outputFolder || app.getPath('desktop');
+  const outputPath = path.join(targetFolder, `output_${Date.now()}.gif`);
 
   return new Promise((resolve, reject) => {
     // 品質から設定を計算
@@ -118,73 +131,38 @@ ipcMain.handle('create-gif', async (event, options) => {
     const aspectRatio = height / width;
     const outputHeight = Math.round(outputWidth * aspectRatio);
 
-    // サイズ上限チェック用
-    const maxSizeMB = sizeLimit;
-    let bestResult = null;
-    let attemptCount = 0;
-    const maxAttempts = 10;
+    event.sender.send('conversion-progress', {
+      message: `変換中... (FPS: ${fps}, サイズ: ${outputWidth}x${outputHeight})`
+    });
 
-    // 指定された品質で変換を試みる
-    const tryConvert = (currentFps, currentScale) => {
-      attemptCount++;
+    ffmpeg(videoPath)
+      .setStartTime(startTime)
+      .setDuration(endTime - startTime)
+      .outputOptions([
+        '-vf', `fps=${fps},scale=${outputWidth}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5`
+      ])
+      .output(outputPath)
+      .on('end', async () => {
+        try {
+          const stats = fs.statSync(outputPath);
+          const sizeMB = stats.size / (1024 * 1024);
 
-      event.sender.send('conversion-progress', {
-        message: `変換中... (FPS: ${currentFps}, Width: ${currentScale}px)`
-      });
-
-      const testPath = path.join(app.getPath('temp'), `test_${Date.now()}_${attemptCount}.gif`);
-
-      ffmpeg(videoPath)
-        .setStartTime(startTime)
-        .setDuration(endTime - startTime)
-        .fps(currentFps)
-        .size(`${currentScale}x?`)
-        .outputOptions([
-          '-vf', `fps=${currentFps},scale=${currentScale}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5`
-        ])
-        .output(testPath)
-        .on('end', async () => {
-          try {
-            const stats = fs.statSync(testPath);
-            const sizeMB = stats.size / (1024 * 1024);
-
-            // サイズ上限内かチェック
-            if (sizeMB <= maxSizeMB) {
-              // 成功
-              fs.renameSync(testPath, outputPath);
-              resolve({
-                success: true,
-                path: outputPath,
-                size: sizeMB.toFixed(2),
-                fps: currentFps,
-                width: currentScale
-              });
-            } else if (attemptCount < maxAttempts) {
-              // サイズが大きすぎる場合、FPSを下げて再試行
-              fs.unlinkSync(testPath);
-              const newFps = Math.max(8, currentFps - 2);
-              const newScale = Math.max(120, Math.floor(currentScale * 0.9));
-              tryConvert(newFps, newScale);
-            } else {
-              // 最大試行回数に達した
-              fs.unlinkSync(testPath);
-              reject(new Error('サイズ上限内に収まりませんでした'));
-            }
-          } catch (err) {
-            reject(err);
-          }
-        })
-        .on('error', (err) => {
-          if (fs.existsSync(testPath)) {
-            fs.unlinkSync(testPath);
-          }
+          resolve({
+            success: true,
+            path: outputPath,
+            size: sizeMB.toFixed(2),
+            fps: fps,
+            width: outputWidth,
+            height: outputHeight
+          });
+        } catch (err) {
           reject(err);
-        })
-        .run();
-    };
-
-    // 初回変換を開始
-    tryConvert(fps, outputWidth);
+        }
+      })
+      .on('error', (err) => {
+        reject(err);
+      })
+      .run();
   });
 });
 
