@@ -3,9 +3,18 @@ const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 
-// FFmpegのパスを設定
-const ffmpegPath = path.join(__dirname, 'ffmpeg-8.0-essentials_build', 'bin', 'ffmpeg.exe');
-const ffprobePath = path.join(__dirname, 'ffmpeg-8.0-essentials_build', 'bin', 'ffprobe.exe');
+// FFmpegのパスを設定（開発時とパッケージ時で異なる）
+function getResourcePath(relativePath) {
+  // パッケージ化されている場合
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, relativePath);
+  }
+  // 開発時
+  return path.join(__dirname, relativePath);
+}
+
+const ffmpegPath = getResourcePath(path.join('ffmpeg-8.0-essentials_build', 'bin', 'ffmpeg.exe'));
+const ffprobePath = getResourcePath(path.join('ffmpeg-8.0-essentials_build', 'bin', 'ffprobe.exe'));
 
 if (fs.existsSync(ffmpegPath)) {
   ffmpeg.setFfmpegPath(ffmpegPath);
