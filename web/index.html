@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GIF Maker</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>GIF MAKER <span class="version">2.0</span></h1>
+      <button id="theme-toggle" class="theme-toggle">
+        <svg id="theme-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+      </button>
+    </header>
+
+    <main>
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-zone-content">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <p>動画ファイルをドロップ</p>
+          <p class="subtitle">または</p>
+          <button id="select-file-btn" class="primary-btn">ファイルを選択</button>
+          <input type="file" id="file-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,.mov,.mp4,.avi,.mkv" style="display: none;">
+          <p class="supported-formats">MOV, MP4, AVI, MKV</p>
+        </div>
+      </div>
+
+      <div id="editor" class="editor" style="display: none;">
+        <div class="video-preview">
+          <div class="video-container">
+            <video id="video-player" controls></video>
+          </div>
+          <div class="video-controls">
+            <button id="change-video-btn" class="secondary-btn">動画を変更</button>
+          </div>
+        </div>
+
+        <div class="controls">
+          <div class="timeline-section">
+            <label>切り取り範囲</label>
+            <div class="timeline">
+              <input type="range" id="start-time" min="0" max="100" value="0" step="0.1">
+              <input type="range" id="end-time" min="0" max="100" value="100" step="0.1">
+            </div>
+            <div class="time-display">
+              <span id="start-time-display">0:00</span>
+              <span id="duration-display">0:00</span>
+              <span id="end-time-display">0:00</span>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="setting-group">
+              <label>開始時間 (秒)</label>
+              <input type="number" id="start-time-input" value="0" min="0" step="0.1">
+            </div>
+            <div class="setting-group">
+              <label>終了時間 (秒)</label>
+              <input type="number" id="end-time-input" value="0" min="0" step="0.1">
+            </div>
+            <div class="setting-group">
+              <label>切り取り長さ (秒)</label>
+              <input type="number" id="duration-input" value="0" min="0.1" step="0.1">
+            </div>
+            <div class="setting-group">
+              <label>出力サイズ (px)</label>
+              <p class="original-size-info">オリジナル: <span id="original-size">-- x --</span></p>
+              <div class="size-display-group">
+                <div class="size-input-wrapper">
+                  <label class="size-label">横幅</label>
+                  <input type="number" id="output-width" value="480" min="120" max="1920" step="1">
+                </div>
+                <span class="size-separator">×</span>
+                <div class="size-input-wrapper">
+                  <label class="size-label">縦幅</label>
+                  <input type="number" id="output-height" value="480" readonly>
+                </div>
+              </div>
+              <button id="reset-size-btn" class="reset-size-btn">オリジナルサイズに戻す</button>
+            </div>
+          </div>
+
+          <div class="quality-section">
+            <div class="quality-control">
+              <label>品質</label>
+              <input type="range" id="quality-slider" min="1" max="100" value="80" step="1">
+              <div class="quality-display">
+                <span class="quality-label">低品質</span>
+                <span id="quality-value">80</span>
+                <span class="quality-label">高品質</span>
+              </div>
+            </div>
+
+            <div class="size-info">
+              <p class="predicted-size">予測サイズ: 約 <span id="predicted-size">0</span> MB</p>
+              <p class="size-warning" id="size-warning" style="display: none; color: #ff6b6b;">15MBを超える可能性があります</p>
+              <p class="size-note">※実際の生成サイズとは誤差が発生します</p>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button id="create-gif-btn" class="primary-btn">GIF作成</button>
+            <button id="reset-btn" class="secondary-btn">リセット</button>
+          </div>
+
+          <div id="progress-section" class="progress-section" style="display: none;">
+            <div class="progress-bar">
+              <div id="progress-bar-fill" class="progress-bar-fill"></div>
+            </div>
+            <p id="progress-message">処理中...</p>
+          </div>
+
+          <div id="result-section" class="result-section" style="display: none;">
+            <h3>完成!</h3>
+            <div class="result-preview">
+              <img id="result-gif" src="" alt="Generated GIF">
+            </div>
+            <div class="result-info">
+              <p>ファイルサイズ: <span id="result-size"></span> MB</p>
+            </div>
+            <button id="download-btn" class="primary-btn">ダウンロード</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
